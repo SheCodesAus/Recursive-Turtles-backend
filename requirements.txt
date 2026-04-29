@@ -2,5 +2,9 @@ asgiref==3.11.1
 Django==5.1
 django-cors-headers==4.9.0
 djangorestframework==3.15.2
-python-dotenv==1.2.2
-sqlparse==0.5.5
+dj-database-url==2.2.0 # to app connect to an external database like in cloud
+gunicorn==23.0.0 #robust server for production, replaing the runserver
+psycopg2-binary==2.9.10 # Postgres database adapter for Python, required for connecting to PostgreSQL databases
+python-dotenv==1.2.2 # to load environment variables from a .env file, useful for managing sensitive information like database credentials
+sqlparse==0.5.5 # SQL parsing library, used by Django for formatting SQL queries in the admin interface and for other database-related tasks
+whitenoise==6.7.0 # to serve static files in production, especially when using platforms like Heroku that don't have a built-in static file server
