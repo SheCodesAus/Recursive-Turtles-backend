@@ -18,9 +18,7 @@ class Event(models.Model):
 # Poll model linked to an event, with a question, creation timestamp, and active status
 class Poll(models.Model):
     event = models.ForeignKey(Event, related_name='polls', on_delete=models.CASCADE)
-    # poll_code = models.CharField(max_length=10, unique=True, default=generate_code)
     question = models.CharField(max_length=255)
-    # options= models.ArrayField(models.CharField(max_length=255), blank=True, default=list)
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
 
@@ -30,8 +28,7 @@ class Poll(models.Model):
 # response model linked to a poll, with a response text and creation timestamp
 class PollResponse(models.Model):
     poll = models.ForeignKey(Poll, related_name='responses', on_delete=models.CASCADE)
-    option = models.ForeignKey('PollOption', related_name='responses', on_delete=models.CASCADE, null=True, blank=True)
-    #response_text = models.CharField(max_length=255)
+    option = models.ForeignKey('PollOption', related_name='responses', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
