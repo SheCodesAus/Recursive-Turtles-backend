@@ -6,7 +6,7 @@ class EventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
         fields = ['id', 'title', 'event_code', 'created_at']
-        reaad_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'created_at']
 
 # Serializer for the PollOption model
 class PollOptionSerializer(serializers.ModelSerializer):
@@ -17,7 +17,6 @@ class PollOptionSerializer(serializers.ModelSerializer):
 
 # Serializer for the Poll model
 class PollSerializer(serializers.ModelSerializer):
-    # options = PollOptionSerializer(many=True, read_only=True)
     options = serializers.ListField(
         child=serializers.CharField(max_length=255),
         write_only=True
@@ -29,6 +28,11 @@ class PollSerializer(serializers.ModelSerializer):
         fields = ['id', 'question', 'created_at', 'is_active', 'options' , 'poll_options' ] #'poll_code',
         read_only_fields = ['id', 'created_at'] 
     
+    def validate_options(self, value):
+        if not value or len(value) == 0:
+            raise serializers.ValidationError("At least one option is required to create a poll.")
+        return value
+    
     def create(self, validated_data):
         options_data = validated_data.pop('options', [])
         poll = Poll.objects.create(**validated_data)
@@ -36,10 +40,17 @@ class PollSerializer(serializers.ModelSerializer):
             PollOption.objects.create(poll=poll, option_text=option_text)
         return poll
 
-#serializer for the PollResponse model
+# serializer for the PollResponse model
 class PollResponseSerializer(serializers.ModelSerializer):
-    option= serializers.PrimaryKeyRelatedField(queryset=PollOption.objects.all())
+    option = serializers.PrimaryKeyRelatedField(queryset=PollOption.objects.all())
+
     class Meta:
         model = PollResponse
-        fields = ['id', 'poll', 'option',  'created_at'] # 'response_text',
+        fields = ['id', 'option', 'created_at']
         read_only_fields = ['id', 'created_at']
+
+    def validate_option(self, value):
+        poll = self.context.get('poll')
+        if poll and value.poll_id != poll.id:
+            raise serializers.ValidationError("Option must belong to the same poll.")
+        return value
