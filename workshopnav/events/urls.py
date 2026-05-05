@@ -1,6 +1,6 @@
 from django.urls import path
-from . import views   # 👈 THIS LINE IS MISSING
+from .views import FeedbackListCreateView
 
 urlpatterns = [
-    path("questions/", views.questions_list),
+    path('feedback/', FeedbackListCreateView.as_view(), name='feedback'),
 ]

@@ -1,8 +1,8 @@
-from django.http import JsonResponse
+from rest_framework import generics
+from .models import Feedback
+from .serializers import FeedbackSerializer
 
-def questions_list(request):
-    return JsonResponse([
-        {"id": 1, "text": "How can we improve engagement?"},
-        {"id": 2, "text": "What tools should we use?"},
-        {"id": 3, "text": "How do we measure success?"}
-    ], safe=False)
+
+class FeedbackListCreateView(generics.ListCreateAPIView):
+    queryset = Feedback.objects.all().order_by('-created_at')
+    serializer_class = FeedbackSerializer
