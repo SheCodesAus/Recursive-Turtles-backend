@@ -49,6 +49,7 @@ class Question(models.Model):
     question_text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     anonymous = models.BooleanField(default=False)
+    visible = models.BooleanField(default=True)
     upvotes = models.PositiveIntegerField(default=0)
 
     def __str__(self):

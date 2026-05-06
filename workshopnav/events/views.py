@@ -185,7 +185,7 @@ class QuestionUpvoteView(APIView):
                 status=status.HTTP_404_NOT_FOUND)
         
         serializer = QuestionSerializer(question)
-        return Response({"id": question.id, "upvotes": question.upvotes,"question_text": question.question_text}, status=status.HTTP_200_OK)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, question_id):
         try:
@@ -198,5 +198,19 @@ class QuestionUpvoteView(APIView):
         question.upvotes += 1
         question.save()
         serializer = QuestionSerializer(question)
-        return Response({"id": question.id,"question_text": question.question_text, "upvotes": question.upvotes}, status=status.HTTP_200_OK)
+        return Response(serializer.data | {"message": "Upvoted successfully"}, status=status.HTTP_200_OK)
     
+class QuestionVisibilityView(APIView):
+
+    def post(self, request, question_id):
+        try:
+            question = Question.objects.get(id=question_id)
+        except Question.DoesNotExist:
+            return Response(
+                {"error": "Question not found."},
+                status=status.HTTP_404_NOT_FOUND)
+        
+        question.visible = not question.visible
+        question.save()
+        serializer = QuestionSerializer(question)
+        return Response(serializer.data | {"message": f"Question is now {'visible' if question.visible else 'hidden'}"}, status=status.HTTP_200_OK)

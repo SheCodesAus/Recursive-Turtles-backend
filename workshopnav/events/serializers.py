@@ -59,7 +59,7 @@ class PollResponseSerializer(serializers.ModelSerializer):
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
-        fields = ['id', 'question_text', 'anonymous', 'created_at','upvotes']
+        fields = ['id', 'question_text', 'anonymous', 'created_at','upvotes', 'visible']
         read_only_fields = ['id','created_at', 'upvotes']
     def create(self, validated_data):
         return Question.objects.create(**validated_data)
