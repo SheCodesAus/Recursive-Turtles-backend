@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Event, Poll, PollResponse, PollOption
+from .models import Event, Poll, PollResponse, PollOption, Question
 
 # Serializer for the Event model
 class EventSerializer(serializers.ModelSerializer):
@@ -54,3 +54,12 @@ class PollResponseSerializer(serializers.ModelSerializer):
         if poll and value.poll_id != poll.id:
             raise serializers.ValidationError("Option must belong to the same poll.")
         return value
+    
+#serializer for the Question model
+class QuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Question
+        fields = ['id', 'question_text', 'anonymous', 'created_at','upvotes']
+        read_only_fields = ['id','created_at', 'upvotes']
+    def create(self, validated_data):
+        return Question.objects.create(**validated_data)
