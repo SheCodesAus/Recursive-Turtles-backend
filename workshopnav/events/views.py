@@ -5,8 +5,8 @@ from rest_framework import status, permissions
 from rest_framework.generics import get_object_or_404
 from django.db.models import Count
 
-from .models import Event, Poll, PollOption
-from .serializers import EventSerializer, PollSerializer, PollResponseSerializer, PollOptionSerializer
+from .models import Event, Poll, PollOption, Question
+from .serializers import EventSerializer, PollSerializer, PollResponseSerializer, PollOptionSerializer, QuestionSerializer
 
 class EventListCreateView(APIView):
 
@@ -140,3 +140,63 @@ class PollResultsView(APIView):
         ]
 
         return Response(options_data)
+
+#Ask questions in an event
+#POST /questions/{question_id}/
+class QuestionListCreateView(APIView):
+
+    def get(self, request, event_id):
+        try:
+            event = Event.objects.get(id=event_id)
+        except Event.DoesNotExist:
+            return Response(
+                {"error": "Event not found."},
+                status=status.HTTP_404_NOT_FOUND)
+        
+        questions = event.questions.all()
+        serializer = QuestionSerializer(questions, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, event_id):
+        try:
+            event = Event.objects.get(id=event_id)
+        except Event.DoesNotExist:
+            return Response(
+                {"error": "Event not found."},
+                status=status.HTTP_404_NOT_FOUND)
+
+        serializer = QuestionSerializer(data=request.data)
+
+        if serializer.is_valid():
+            serializer.save(event=event)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST) 
+    
+#POST /questions/{question_id}/upvote/ - upvote a question
+class QuestionUpvoteView(APIView):
+
+    def get(self, request, question_id):
+        try:
+            question = Question.objects.get(id=question_id)
+        except Question.DoesNotExist:
+            return Response(
+                {"error": "Question not found."},
+                status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = QuestionSerializer(question)
+        return Response({"id": question.id, "upvotes": question.upvotes,"question_text": question.question_text}, status=status.HTTP_200_OK)
+
+    def post(self, request, question_id):
+        try:
+            question = Question.objects.get(id=question_id)
+        except Question.DoesNotExist:
+            return Response(
+                {"error": "Question not found."},
+                status=status.HTTP_404_NOT_FOUND)
+        
+        question.upvotes += 1
+        question.save()
+        serializer = QuestionSerializer(question)
+        return Response({"id": question.id,"question_text": question.question_text, "upvotes": question.upvotes}, status=status.HTTP_200_OK)
+    
