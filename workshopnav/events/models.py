@@ -43,6 +43,18 @@ class PollOption(models.Model):
     def __str__(self):
         return f"Option: {self.option_text} for Poll: {self.poll.question}"
 
+# Question model linked to an event, with question text, visibility, upvotes, and creation timestamp
+class Question(models.Model):
+    event = models.ForeignKey(Event, related_name='questions', on_delete=models.CASCADE)
+    question_text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    anonymous = models.BooleanField(default=False)
+    visible = models.BooleanField(default=True)
+    upvotes = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return f"Question: {self.question_text} for Event: {self.event.title}"
+
 
 # Feedback model
 class Feedback(models.Model):
