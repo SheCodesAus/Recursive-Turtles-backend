@@ -42,3 +42,35 @@ class PollOption(models.Model):
 
     def __str__(self):
         return f"Option: {self.option_text} for Poll: {self.poll.question}"
+
+
+# Feedback model
+class Feedback(models.Model):
+    #Links feedback to specific event
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="feedback")
+    #rating score
+    rating = models.IntegerField()
+    #optional comment field
+    comment = models.TextField(blank=True)
+    #auto stores when the feedback is created
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Feedback for {self.event.title}"
+
+
+#Email capture model
+class EmailCapture(models.Model):
+    #Links email to an event
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="emails")
+    #Stores user's email
+    email = models.EmailField()
+    #When email was submitted
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # Prevent the same email being submitted twice for the same event
+    class Meta:
+        unique_together = ("event", "email")
+
+    def __str__(self):
+        return self.email

@@ -7,4 +7,6 @@ urlpatterns = [
     path('events/<int:event_id>/polls/', views.PollListCreateView.as_view()),
     path('polls/<int:poll_id>/responses/', views.PollResponseCreateView.as_view()),
     path('polls/<int:poll_id>/results/', views.PollResultsView.as_view()),
+    path("events/<int:event_id>/feedback/", views.FeedbackCreateView.as_view()),
+    path("events/<int:event_id>/emails/", views.EmailCaptureCreateView.as_view()),
 ]

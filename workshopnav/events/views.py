@@ -5,8 +5,8 @@ from rest_framework import status, permissions
 from rest_framework.generics import get_object_or_404
 from django.db.models import Count
 
-from .models import Event, Poll, PollOption
-from .serializers import EventSerializer, PollSerializer, PollResponseSerializer, PollOptionSerializer
+from .models import Event, Poll, PollOption, Feedback, EmailCapture
+from .serializers import EventSerializer, PollSerializer, PollResponseSerializer, PollOptionSerializer, FeedbackSerializer, EmailCaptureSerializer
 
 class EventListCreateView(APIView):
 
@@ -140,3 +140,60 @@ class PollResultsView(APIView):
         ]
 
         return Response(options_data)
+
+#POST /events/:id/feedback/ -> User submits feedback
+
+class FeedbackCreateView(APIView):
+
+#GET feedback summary
+    def get(self, request, event_id):
+        event = get_object_or_404(Event, id=event_id)
+        feedback = event.feedback.all()
+        serializer = FeedbackSerializer(feedback, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+#POST /events/:id/feedback/ -> User submits feedback
+    def post(self, request, event_id):
+        try:
+            event = get_object_or_404(Event, id=event_id)
+        except Event.DoesNotExist:
+            return Response(
+                {"error": "Event not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        serializer = FeedbackSerializer(data=request.data)
+
+        if serializer.is_valid():
+            serializer.save(event=event)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EmailCaptureCreateView(APIView):
+#Get collected emails endpoint
+    def get(self, request, event_id):
+        event = get_object_or_404(Event, id=event_id)
+        emails = event.emails.all()
+        serializer = EmailCaptureSerializer(emails, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+#POST /events/:id/emails/ -> User submits email
+    def post(self, request, event_id):
+        event = get_object_or_404(Event, id=event_id)
+        email = request.data.get("email")
+
+        if EmailCapture.objects.filter(event=event, email=email).exists():
+            return Response(
+                {"error": "This email has already been submitted for this event."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = EmailCaptureSerializer(data=request.data)
+
+        if serializer.is_valid():
+            serializer.save(event=event)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

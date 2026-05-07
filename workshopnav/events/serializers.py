@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Event, Poll, PollResponse, PollOption
+from .models import Event, Poll, PollResponse, PollOption, Feedback, EmailCapture
 
 # Serializer for the Event model
 class EventSerializer(serializers.ModelSerializer):
@@ -54,3 +54,17 @@ class PollResponseSerializer(serializers.ModelSerializer):
         if poll and value.poll_id != poll.id:
             raise serializers.ValidationError("Option must belong to the same poll.")
         return value
+
+#serializer for the Feedback model
+class FeedbackSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Feedback
+        fields = "__all__"
+        read_only_fields = ["event"]
+
+#serializer for the EmailCapture model
+class EmailCaptureSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmailCapture
+        fields = "__all__"
+        read_only_fields = ["event"]
