@@ -187,7 +187,7 @@ class QuestionUpvoteView(APIView):
         serializer = QuestionSerializer(question)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def post(self, request, question_id):
+    def patch(self, request, question_id):
         try:
             question = Question.objects.get(id=question_id)
         except Question.DoesNotExist:
