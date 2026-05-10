@@ -3,10 +3,12 @@ from .models import Event, Poll, PollResponse, PollOption, Feedback, EmailCaptur
 
 # Serializer for the Event model
 class EventSerializer(serializers.ModelSerializer):
+    owner = serializers.ReadOnlyField(source='owner.id')
+
     class Meta:
         model = Event
-        fields = ['id', 'title', 'event_code', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        fields = ['id', 'title', 'event_code', 'created_at', 'owner']
+        read_only_fields = ['id', 'created_at', 'owner']
 
 # Serializer for the PollOption model
 class PollOptionSerializer(serializers.ModelSerializer):

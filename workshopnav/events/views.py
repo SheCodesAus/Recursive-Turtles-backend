@@ -9,23 +9,30 @@ from .models import Event, Poll, PollOption, Question, Feedback, EmailCapture
 from .serializers import EventSerializer, PollSerializer, PollResponseSerializer, PollOptionSerializer, QuestionSerializer, FeedbackSerializer, EmailCaptureSerializer
 
 class EventListCreateView(APIView):
+    serializer_class = EventSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
-# Get all events 
+    def get_queryset(self):
+        return Event.objects.filter(owner=self.request.user)
+    
+    def is_event_owner(self, event, user):
+        return event.owner == user
+
+    # Get all events owned by the authenticated user
     def get(self, request):
-        # events = Event.objects.filter(user=request.user)
-        events = Event.objects.all()
+        events = self.get_queryset()
         serializer = EventSerializer(events, many=True)
         return Response(serializer.data)
 
-# Create a new event
+    # Create a new event
     def post(self, request):
         serializer = EventSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(owner=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# Get event by code
+# Get event by code (public view, but edit/delete restricted to owner)
 class EventByCodeView(APIView):
     def get(self, request, code):
         try:
@@ -37,15 +44,50 @@ class EventByCodeView(APIView):
         
         serializer = EventSerializer(event)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def put(self, request, code):
+        permission_classes = [permissions.IsAuthenticated]
+        if not request.user.is_authenticated:
+            return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            event = Event.objects.get(event_code__iexact=code)
+        except Event.DoesNotExist:
+            return Response({"error": "Event not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        if event.owner != request.user:
+            return Response({"error": "You do not have permission to edit this event."}, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = EventSerializer(event, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, code):
+        if not request.user.is_authenticated:
+            return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            event = Event.objects.get(event_code__iexact=code)
+        except Event.DoesNotExist:
+            return Response({"error": "Event not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        if event.owner != request.user:
+            return Response({"error": "You do not have permission to delete this event."}, status=status.HTTP_403_FORBIDDEN)
+        
+        event.delete()
+        return Response({"message": "Event deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
 #polls for an event
-#POST /events/{event_id}/polls/ - create a new poll for the event
-#GET /events/{event_id}/polls/ - get all polls for the event
+#GET /events/{event_id}/polls/ - get all polls for the event (public)
+#POST /events/{event_id}/polls/ - create a new poll (event owner only)
 class PollListCreateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, event_id):
         try:
-                event = get_object_or_404(Event, id=event_id)
+            event = get_object_or_404(Event, id=event_id)
         except Event.DoesNotExist:
             return Response(
                 {"error": "Event not found."},
@@ -62,6 +104,12 @@ class PollListCreateView(APIView):
             return Response(
                 {"error": "Event not found."},
                 status=status.HTTP_404_NOT_FOUND)
+        
+        # Only event owner can create polls
+        if event.owner != request.user:
+            return Response(
+                {"error": "Only the event owner can create polls."},
+                status=status.HTTP_403_FORBIDDEN)
         
         serializer = PollSerializer(data=request.data)
 
