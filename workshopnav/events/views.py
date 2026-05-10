@@ -9,11 +9,18 @@ from .models import Event, Poll, PollOption, Question
 from .serializers import EventSerializer, PollSerializer, PollResponseSerializer, PollOptionSerializer, QuestionSerializer
 
 class EventListCreateView(APIView):
+    serilaizer_class = EventSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Event.objects.filter(owner=self.request.user)
+    
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
 
 # Get all events 
     def get(self, request):
-        # events = Event.objects.filter(user=request.user)
-        events = Event.objects.all()
+        events = self.get_queryset()
         serializer = EventSerializer(events, many=True)
         return Response(serializer.data)
 
@@ -21,7 +28,8 @@ class EventListCreateView(APIView):
     def post(self, request):
         serializer = EventSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            # serializer.save()
+            serializer.save(owner=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
