@@ -118,6 +118,61 @@ class PollListCreateView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# update & delete polls
+class PollDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, poll_id):
+        try:
+            poll = Poll.objects.get(id=poll_id)
+        except Poll.DoesNotExist:
+            return Response(
+                {"error": "Poll not found."},
+                status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = PollSerializer(poll)
+        return Response(serializer.data)
+
+    def put(self, request, poll_id):
+        try:
+            poll = Poll.objects.get(id=poll_id)
+        except Poll.DoesNotExist:
+            return Response(
+                {"error": "Poll not found."},
+                status=status.HTTP_404_NOT_FOUND)
+        
+        # Only event owner can update polls
+        if poll.event.owner != request.user:
+            return Response(
+                {"error": "Only the event owner can update this poll."},
+                status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = PollSerializer(poll, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, poll_id):
+        try:
+            poll = Poll.objects.get(id=poll_id)
+        except Poll.DoesNotExist:
+            return Response(
+                {"error": "Poll not found."},
+                status=status.HTTP_404_NOT_FOUND)
+        
+        # Only event owner can delete polls
+        if poll.event.owner != request.user:
+            return Response(
+                {"error": "Only the event owner can delete this poll."},
+                status=status.HTTP_403_FORBIDDEN)
+        
+        poll.delete()
+        return Response({"message": "Poll deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+
     
 #POST /polls/{poll_id}/responses/ - submit a response to a poll
 class PollResponseCreateView(APIView):
