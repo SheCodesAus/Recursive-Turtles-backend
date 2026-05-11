@@ -23,7 +23,7 @@ class Poll(models.Model):
     event = models.ForeignKey(Event, related_name='polls', on_delete=models.CASCADE)
     question = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Poll: {self.question} for Event: {self.event.title}"
