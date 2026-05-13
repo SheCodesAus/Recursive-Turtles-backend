@@ -41,6 +41,19 @@ class PollSerializer(serializers.ModelSerializer):
         for option_text in options_data:
             PollOption.objects.create(poll=poll, option_text=option_text)
         return poll
+    
+    def update(self, instance, validated_data):
+        options_data = validated_data.pop('options', None)
+        instance.question = validated_data.get('question', instance.question)
+        instance.is_active = validated_data.get('is_active', instance.is_active)
+
+        if options_data is not None:
+            instance.options.all().delete()
+            for option_text in options_data:
+                PollOption.objects.create(poll=instance, option_text=option_text)
+                instance.save()
+
+        return instance
 
 # serializer for the PollResponse model
 class PollResponseSerializer(serializers.ModelSerializer):
