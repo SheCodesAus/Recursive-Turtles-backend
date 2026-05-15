@@ -8,15 +8,16 @@ from django.db.models import Count
 from .models import Event, Poll, PollOption, Question, Feedback, EmailCapture
 from .serializers import EventSerializer, PollSerializer, PollResponseSerializer, PollOptionSerializer, QuestionSerializer, FeedbackSerializer, EmailCaptureSerializer
 
+class EventOwnerMixin:
+    def is_event_owner(self, event, user):
+        return event.owner == user
+
 class EventListCreateView(APIView):
     serializer_class = EventSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         return Event.objects.filter(owner=self.request.user)
-    
-    def is_event_owner(self, event, user):
-        return event.owner == user
 
     # Get all events owned by the authenticated user
     def get(self, request):
@@ -32,12 +33,24 @@ class EventListCreateView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# Get event by code (public view, but edit/delete restricted to owner)
-class EventByCodeView(APIView):
+# Get event by code (public view, but edit/delete restricted to owner)--Attendee
+class AttendeeEventByCodeView(APIView):
+    permission_classes = [permissions.AllowAny]
+    def get(self, request, code):
+        event = get_object_or_404(Event, event_code__iexact=code)
+        
+        serializer = EventSerializer(event)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+#Get event by code (owner view with edit/delete permissions)--Facilitator
+class FacilitatorEventDetailView(EventOwnerMixin, APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, code):
         event = get_object_or_404(Event, event_code__iexact=code)
+        
+        if not self.is_event_owner(event, request.user):
+            return Response({"error": "You do not have permission to view this event."}, status=status.HTTP_403_FORBIDDEN)
         
         serializer = EventSerializer(event)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -49,7 +62,7 @@ class EventByCodeView(APIView):
         
         event = get_object_or_404(Event, event_code__iexact=code)
         
-        if event.owner != request.user:
+        if not self.is_event_owner(event, request.user):
             return Response({"error": "You do not have permission to edit this event."}, status=status.HTTP_403_FORBIDDEN)
         
         serializer = EventSerializer(event, data=request.data, partial=True)
@@ -64,11 +77,11 @@ class EventByCodeView(APIView):
         
         event = get_object_or_404(Event, event_code__iexact=code)
         
-        if event.owner != request.user:
+        if not self.is_event_owner(event, request.user):
             return Response({"error": "You do not have permission to delete this event."}, status=status.HTTP_403_FORBIDDEN)
         
         event.delete()
-        return Response({"message": "Event deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+        return Response({"message": "Event deleted successfully."}, status=status.HTTP_204_NO_CONTENT)  
 
 #polls for an event
 #GET /events/{event_id}/polls/ - get all polls for the event (public)
