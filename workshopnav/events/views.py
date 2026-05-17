@@ -1,4 +1,3 @@
-# from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
@@ -10,7 +9,6 @@ from .serializers import (
     EventSerializer,
     PollSerializer,
     PollResponseSerializer,
-    PollOptionSerializer,
     QuestionSerializer,
     FeedbackSerializer,
     EmailCaptureSerializer,
@@ -21,83 +19,61 @@ class EventOwnerMixin:
     def is_event_owner(self, event, user):
         return event.owner == user
 
+
+# EVENTS
 class EventListCreateView(APIView):
-    serializer_class = EventSerializer
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
+        return Event.objects.all()
 
-        return Event.objects.filter(owner=self.request.user)
-
-        
-    def is_event_owner(self, event, user):
-        return event.owner == user
-
-
-    # Get all events owned by the authenticated user
     def get(self, request):
         events = self.get_queryset()
         serializer = EventSerializer(events, many=True)
         return Response(serializer.data)
 
-    # Create a new event
     def post(self, request):
         serializer = EventSerializer(data=request.data)
+
         if serializer.is_valid():
-            serializer.save(owner=request.user)
+
+            if request.user.is_authenticated:
+                serializer.save(owner=request.user)
+            else:
+                serializer.save()
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    #updtae & delete events
-class EventDetailView(EventOwnerMixin, APIView):
-    def put(self, request, event_id):
-        event = get_object_or_404(Event, id=event_id)
 
-        if not(self.is_event_owner(event, request.user)):
-            return Response({"error": "You do not have permission to edit this event."}, status=status.HTTP_403_FORBIDDEN)
-        
-        serializer = EventSerializer(event, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def delete(self, request, event_id):
-        event = get_object_or_404(Event, id=event_id)
 
-        if not self.is_event_owner(event, request.user):
-            return Response({"error": "You do not have permission to delete this event."}, status=status.HTTP_403_FORBIDDEN)
-
-        event.delete()
-        return Response({"message": "Event deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
-
-# Get event by code (public view, but edit/delete restricted to owner)--Attendee
-class AttendeeEventByCodeView(APIView):
+class EventDetailView(APIView):
     permission_classes = [permissions.AllowAny]
-    def get(self, request, code):
-        event = get_object_or_404(Event, event_code__iexact=code)
-        
+
+    def get(self, request, pk):
+        event = get_object_or_404(Event, pk=pk)
+
         serializer = EventSerializer(event)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
-#Get event by code (owner view with edit/delete permissions)--Facilitator
-class FacilitatorEventDetailView(EventOwnerMixin, APIView):
-    permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, request, code):
-        event = get_object_or_404(Event, event_code__iexact=code)
-        
-        if not self.is_event_owner(event, request.user):
-            return Response({"error": "You do not have permission to view this event."}, status=status.HTTP_403_FORBIDDEN)
-        
 
-# Get event by code (public view, but edit/delete restricted to owner)
-class EventByCodeView(APIView):
+# ATTENDEE EVENT VIEW
+class AttendeeEventByCodeView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, code):
         event = get_object_or_404(Event, event_code__iexact=code)
 
+        serializer = EventSerializer(event)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# FACILITATOR EVENT VIEW
+class EventByCodeView(EventOwnerMixin, APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, code):
+        event = get_object_or_404(Event, event_code__iexact=code)
 
         serializer = EventSerializer(event)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -111,35 +87,46 @@ class EventByCodeView(APIView):
             )
 
         event = get_object_or_404(Event, event_code__iexact=code)
+
         if not self.is_event_owner(event, request.user):
             return Response(
                 {"error": "You do not have permission to edit this event."},
                 status=status.HTTP_403_FORBIDDEN,
-            )   
-
+            )
 
         serializer = EventSerializer(event, data=request.data, partial=True)
+
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, code):
+
         if not request.user.is_authenticated:
+            return Response(
+                {"error": "Authentication required."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
-            return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
-        
         event = get_object_or_404(Event, event_code__iexact=code)
-        
-        if not self.is_event_owner(event, request.user):
-            return Response({"error": "You do not have permission to delete this event."}, status=status.HTTP_403_FORBIDDEN)
-        
-        event.delete()
-        return Response({"message": "Event deleted successfully."}, status=status.HTTP_204_NO_CONTENT)  
 
-# polls for an event
-# GET /events/{event_id}/polls/ - get all polls for the event (public)
-# POST /events/{event_id}/polls/ - create a new poll (event owner only)
+        if not self.is_event_owner(event, request.user):
+            return Response(
+                {"error": "You do not have permission to delete this event."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        event.delete()
+
+        return Response(
+            {"message": "Event deleted successfully."},
+            status=status.HTTP_204_NO_CONTENT,
+        )
+
+
+# POLLS
 class PollListCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -149,12 +136,13 @@ class PollListCreateView(APIView):
 
         polls = event.polls.all()
         serializer = PollSerializer(polls, many=True)
+
         return Response(serializer.data)
 
     def post(self, request, event_id):
+
         event = get_object_or_404(Event, id=event_id)
 
-        # Only event owner can create polls
         if event.owner != request.user:
             return Response(
                 {"error": "Only the event owner can create polls."},
@@ -165,25 +153,27 @@ class PollListCreateView(APIView):
 
         if serializer.is_valid():
             serializer.save(event=event)
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# update & delete polls
 class PollDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, poll_id):
+
         poll = get_object_or_404(Poll, id=poll_id)
 
         serializer = PollSerializer(poll)
+
         return Response(serializer.data)
 
     def put(self, request, poll_id):
+
         poll = get_object_or_404(Poll, id=poll_id)
 
-        # Only event owner can update polls
         if poll.event.owner != request.user:
             return Response(
                 {"error": "Only the event owner can update this poll."},
@@ -194,14 +184,15 @@ class PollDetailView(APIView):
 
         if serializer.is_valid():
             serializer.save()
+
             return Response(serializer.data)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, poll_id):
+
         poll = get_object_or_404(Poll, id=poll_id)
 
-        # Only event owner can delete polls
         if poll.event.owner != request.user:
             return Response(
                 {"error": "Only the event owner can delete this poll."},
@@ -209,49 +200,53 @@ class PollDetailView(APIView):
             )
 
         poll.delete()
+
         return Response(
-            {"message": "Poll deleted successfully."}, status=status.HTTP_204_NO_CONTENT
+            {"message": "Poll deleted successfully."},
+            status=status.HTTP_204_NO_CONTENT,
         )
 
 
-# POST /polls/{poll_id}/responses/ - submit a response to a poll
+# POLL RESPONSES
 class PollResponseCreateView(APIView):
 
     def get(self, request, poll_id):
+
         poll = get_object_or_404(Poll, id=poll_id)
 
-        self.responses = poll.responses.all()
-        serializer = PollResponseSerializer(self.responses, many=True)
+        responses = poll.responses.all()
+
+        serializer = PollResponseSerializer(responses, many=True)
+
         return Response(serializer.data)
 
     def post(self, request, poll_id):
+
         poll = get_object_or_404(Poll, id=poll_id)
 
         if not poll.is_active:
             return Response(
-                {"error": "Poll is not active."}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "Poll is not active."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        serializer = PollResponseSerializer(data=request.data, context={"poll": poll})
+        serializer = PollResponseSerializer(
+            data=request.data,
+            context={"poll": poll},
+        )
 
         if serializer.is_valid():
             serializer.save(poll=poll)
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# GET /polls/{poll_id}/results/ - get the results of a poll (number of responses for each option)
+# POLL RESULTS
 class PollResultsView(APIView):
 
     def get(self, request, poll_id):
-        poll = get_object_or_404(Poll, id=poll_id)
-
-        # options = poll.options.all()
-        # results = {}
-        # for option in options:
-        #     results[option.option_text] = option.responses.count()
-        # return Response(results)
 
         options = PollOption.objects.filter(poll_id=poll_id).annotate(
             count=Count("responses")
@@ -272,97 +267,91 @@ class PollResultsView(APIView):
         return Response(options_data)
 
 
-# Ask questions in an event
-# POST /questions/{question_id}/
+# QUESTIONS
 class QuestionListCreateView(APIView):
 
     def get(self, request, event_id):
+
         event = get_object_or_404(Event, id=event_id)
 
         questions = event.questions.all()
+
         serializer = QuestionSerializer(questions, many=True)
+
         return Response(serializer.data)
 
     def post(self, request, event_id):
+
         event = get_object_or_404(Event, id=event_id)
 
         serializer = QuestionSerializer(data=request.data)
 
         if serializer.is_valid():
             serializer.save(event=event)
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# POST /questions/{question_id}/upvote/ - upvote a question
 class QuestionUpvoteView(APIView):
 
     def get(self, request, question_id):
+
         question = get_object_or_404(Question, id=question_id)
 
         serializer = QuestionSerializer(question)
+
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def patch(self, request, question_id):
+
         question = get_object_or_404(Question, id=question_id)
 
         question.upvotes += 1
         question.save()
+
         serializer = QuestionSerializer(question)
+
         return Response(
             serializer.data | {"message": "Upvoted successfully"},
             status=status.HTTP_200_OK,
         )
 
 
-class QuestionVisibilityView(APIView):
-
-    def post(self, request, question_id):
-        question = get_object_or_404(Question, id=question_id)
-
-        question.visible = not question.visible
-        question.save()
-        serializer = QuestionSerializer(question)
-        return Response(
-            serializer.data
-            | {
-                "message": f"Question is now {'visible' if question.visible else 'hidden'}"
-            },
-            status=status.HTTP_200_OK,
-        )
-
-
-# POST /events/:id/feedback/ -> User submits feedback
-
-
+# FEEDBACK
 class FeedbackCreateView(APIView):
 
-    # GET feedback summary
     def get(self, request, event_id):
+
         event = get_object_or_404(Event, id=event_id)
+
         feedback = event.feedback.all()
+
         serializer = FeedbackSerializer(feedback, many=True)
+
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    # POST /events/:id/feedback/ -> User submits feedback
     def post(self, request, event_id):
+
         event = get_object_or_404(Event, id=event_id)
 
         serializer = FeedbackSerializer(data=request.data)
 
         if serializer.is_valid():
             serializer.save(event=event)
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# POST /events/{event_id}/open-feedback/ -> Facilitator opens feedback at end of session
 class OpenFeedbackView(APIView):
 
     def post(self, request, event_id):
+
         event = get_object_or_404(Event, id=event_id)
+
         event.feedback_open = True
         event.save()
 
@@ -375,17 +364,23 @@ class OpenFeedbackView(APIView):
         )
 
 
+# EMAIL CAPTURE
 class EmailCaptureCreateView(APIView):
-    # Get collected emails endpoint
+
     def get(self, request, event_id):
+
         event = get_object_or_404(Event, id=event_id)
+
         emails = event.emails.all()
+
         serializer = EmailCaptureSerializer(emails, many=True)
+
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    # POST /events/:id/emails/ -> User submits email
     def post(self, request, event_id):
+
         event = get_object_or_404(Event, id=event_id)
+
         email = request.data.get("email")
 
         if EmailCapture.objects.filter(event=event, email=email).exists():
@@ -398,6 +393,7 @@ class EmailCaptureCreateView(APIView):
 
         if serializer.is_valid():
             serializer.save(event=event)
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
