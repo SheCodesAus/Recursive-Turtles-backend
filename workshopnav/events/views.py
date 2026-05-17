@@ -26,6 +26,16 @@ class EventListCreateView(APIView):
 
     def get_queryset(self):
         return Event.objects.all()
+<<<<<<< HEAD
+=======
+
+    def is_event_owner(self, event, user):
+        return event.owner == user
+
+    # Get all events owned by the authenticated user
+
+    # Get all events
+>>>>>>> b4a5b6d (Fix event API integration and event details flow)
 
     def get(self, request):
         events = self.get_queryset()
