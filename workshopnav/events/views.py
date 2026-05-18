@@ -32,6 +32,29 @@ class EventListCreateView(APIView):
             serializer.save(owner=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    #updtae & delete events
+class EventDetailView(EventOwnerMixin, APIView):
+    def put(self, request, event_id):
+        event = get_object_or_404(Event, id=event_id)
+
+        if not(self.is_event_owner(event, request.user)):
+            return Response({"error": "You do not have permission to edit this event."}, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = EventSerializer(event, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, event_id):
+        event = get_object_or_404(Event, id=event_id)
+
+        if not self.is_event_owner(event, request.user):
+            return Response({"error": "You do not have permission to delete this event."}, status=status.HTTP_403_FORBIDDEN)
+
+        event.delete()
+        return Response({"message": "Event deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
 # Get event by code (public view, but edit/delete restricted to owner)--Attendee
 class AttendeeEventByCodeView(APIView):

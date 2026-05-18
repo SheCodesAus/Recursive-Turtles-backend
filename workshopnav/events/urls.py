@@ -3,6 +3,7 @@ from . import views
 
 urlpatterns = [
     path('events/', views.EventListCreateView.as_view()),
+    path('events/<int:event_id>/', views.EventDetailView.as_view()),
     path('events/join/<str:code>/', views.AttendeeEventByCodeView.as_view()),
     path('events/<str:code>/', views.FacilitatorEventDetailView.as_view()),
     path('events/<int:event_id>/polls/', views.PollListCreateView.as_view()),
